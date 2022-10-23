@@ -2,6 +2,8 @@
 
 ## 后缀自动机
 
+### 一般的后缀自动机
+
 ![](assets/sam.png)
 
 + 广义后缀自动机如果直接使用以下代码的话会产生一些冗余状态（置 last 为 1），所以要用拓扑排序。用 len 基数排序不能。
@@ -10,64 +12,74 @@
 + rsort 中的数组 a 是拓扑序 [1, sz)
 
 ```cpp
-namespace sam {
-    const int M = N << 1;
-    int t[M][26], len[M] = {-1}, fa[M], sz = 2, last = 1;
-    void init() { memset(t, 0, (sz + 10) * sizeof t[0]); sz = 2; last = 1; }
-    void ins(int ch) {
-        int p = last, np = last = sz++;
-        len[np] = len[p] + 1;
-        for (; p && !t[p][ch]; p = fa[p]) t[p][ch] = np;
-        if (!p) { fa[np] = 1; return; }
-        int q = t[p][ch];
-        if (len[p] + 1 == len[q]) fa[np] = q;
-        else {
-            int nq = sz++; len[nq] = len[p] + 1;
-            memcpy(t[nq], t[q], sizeof t[0]);
-            fa[nq] = fa[q];
-            fa[np] = fa[q] = nq;
-            for (; t[p][ch] == q; p = fa[p]) t[p][ch] = nq;
-        }
-    }
-
-    int c[M] = {1}, a[M];
-    void rsort() {
-        FOR (i, 1, sz) c[i] = 0;
-        FOR (i, 1, sz) c[len[i]]++;
-        FOR (i, 1, sz) c[i] += c[i - 1];
-        FOR (i, 1, sz) a[--c[len[i]]] = i;
-    }
+// 注意 N 应该是字符串长度的 2 倍！
+int nod = 1, lst = 1;
+struct Node { int c[26], len, fa; } t[N];
+int tax[N], q[N], sz[N]; // tax 用来对 len 计数的数组，q 排序后的队列，sz 是 parent 树的子树大小
+void extend(int x) {
+	int p = lst, np = ++nod;
+	t[np].len = t[p].len + 1;
+	for (; p && !t[p].c[x]; p = t[p].fa) t[p].c[x] = np;
+	if (!p) t[np].fa = 1;
+	else {
+		int q = t[p].c[x];
+		if (t[q].len == t[p].len + 1) t[np].fa = q;
+		else {
+			int nq = ++nod;
+			t[nq] = t[q], t[nq].len = t[p].len + 1, t[q].fa = t[np].fa = nq;
+			for (; p && t[p].c[x] == q; p = t[p].fa) t[p].c[x] = nq;
+		}
+	}
+	lst = np;
+}
+void resort() { // 对节点重新排序，使得在 SAM 和 parent 树上都是拓扑序
+	for (int i = 1; i <= nod; ++i) ++tax[t[i].len];
+	for (int i = 1; i <= n; ++i) tax[i] += tax[i - 1];
+	for (int i = 1; i <= nod; ++i) q[tax[t[i].len]--] = i;
+	for (int i = nod; i; --i) sz[t[q[i]].fa] += sz[q[i]];
 }
 ```
 
-+ 真·广义后缀自动机
+### 真·广义后缀自动机
 
 ```cpp
-int t[M][26], len[M] = {-1}, fa[M], sz = 2, last = 1;
-LL cnt[M][2];
-void ins(int ch, int id) {
-    int p = last, np = 0, nq = 0, q = -1;
-    if (!t[p][ch]) {
-        np = sz++;
-        len[np] = len[p] + 1;
-        for (; p && !t[p][ch]; p = fa[p]) t[p][ch] = np;
+// 注意 N 应该是字符串长度的 2 倍！
+int nod = 1;
+struct Node { int c[26], len, fa; } t[N];
+int tax[N], q[N], sz[N]; // tax 用来对 len 计数的数组，q 排序后的队列，sz 是 parent 树的子树大小
+int extend(int p, int x) {
+    if (t[p].c[x]) {
+        int q = t[p].c[x];
+        if (t[q].len == t[p].len + 1) return q;
+        int nq = ++nod;
+        t[nq] = t[q], t[nq].len = t[p].len + 1, t[q].fa = nq;
+        for (; t[p].c[x] == q; p = t[p].fa) t[p].c[x] = nq;
+        return nq;
     }
-    if (!p) fa[np] = 1;
-    else {
-        q = t[p][ch];
-        if (len[p] + 1 == len[q]) fa[np] = q;
-        else {
-            nq = sz++; len[nq] = len[p] + 1;
-            memcpy(t[nq], t[q], sizeof t[0]);
-            fa[nq] = fa[q];
-            fa[np] = fa[q] = nq;
-            for (; t[p][ch] == q; p = fa[p]) t[p][ch] = nq;
-        }
-    }
-    last = np ? np : nq ? nq : q;
-    cnt[last][id] = 1;
+	int np = ++nod;
+	t[np].len = t[p].len + 1;
+	for (; p && !t[p].c[x]; p = t[p].fa) t[p].c[x] = np;
+	if (!p) t[np].fa = 1;
+	else {
+		int q = t[p].c[x];
+		if (t[q].len == t[p].len + 1) t[np].fa = q;
+		else {
+			int nq = ++nod;
+			t[nq] = t[q], t[nq].len = t[p].len + 1, t[q].fa = t[np].fa = nq;
+			for (; p && t[p].c[x] == q; p = t[p].fa) t[p].c[x] = nq;
+		}
+	}
+    return np;
+}
+void resort() {
+	for (int i = 1; i <= nod; ++i) ++tax[t[i].len];
+	for (int i = 1; i <= n; ++i) tax[i] += tax[i - 1];
+	for (int i = 1; i <= nod; ++i) q[tax[t[i].len]--] = i;
+	for (int i = nod; i; --i) sz[t[q[i]].fa] += sz[q[i]];
 }
 ```
+
+以下为原模板的内容：
 
 
 + 按字典序建立后缀树 注意逆序插入
@@ -255,56 +267,56 @@ namespace lct_sam {
 
 ## 回文自动机
 
++ len 是回文串长度
 + num 是该结点表示的前缀的回文后缀个数
-+ cnt 是该结点表示的回文串在原串中的出现次数（使用前需要向父亲更新）
 
 ```cpp
-namespace pam {
-    int t[N][26], fa[N], len[N], rs[N], cnt[N], num[N];
-    int sz, n, last;
-    int _new(int l) {
-        len[sz] = l; cnt[sz] = num[sz] = 0;
-        return sz++;
+int nod, lst, rn;
+char rs[N];
+struct Node { int c[26], len, fa, num; } t[N];
+void init() { // 注意 init 不会清空数组，多测需要自行清空。
+    t[0].len = 0, t[1].len = -1, t[0].fa = 1;
+    rs[0] = -1;
+    nod = 1, lst = 0;
+}
+int getfa(int o) {
+    while (rs[rn - t[o].len - 1] != rs[rn]) o = t[o].fa;
+    return o;
+}
+void extend(int x) {
+    rs[++rn] = x;
+    int p = getfa(lst);
+    if (!t[p].c[x]) {
+        int np = ++nod;
+        t[np].len = t[p].len + 2;
+        t[np].fa = t[getfa(t[p].fa)].c[x];
+        t[np].num = t[t[np].fa].num + 1;
+        t[p].c[x] = np;
     }
-    void init() {
-        memset(t, 0, sz * sizeof t[0]);
-        rs[n = sz = 0] = -1;
-        last = _new(0);
-        fa[last] = _new(-1);
-    }
-    int get_fa(int x) {
-        while (rs[n - 1 - len[x]] != rs[n]) x = fa[x];
-        return x;
-    }
-    void ins(int ch) {
-        rs[++n] = ch;
-        int p = get_fa(last);
-        if (!t[p][ch]) {
-            int np = _new(len[p] + 2);
-            num[np] = num[fa[np] = t[get_fa(fa[p])][ch]] + 1;
-            t[p][ch] = np;
-        }
-        ++cnt[last = t[p][ch]];
-    }
+    lst = t[p].c[x];
 }
 ```
 
 ## manacher
 
 ```cpp
-int RL[N];
-void manacher(int* a, int n) { // "abc" => "#a#b#a#"
-    int r = 0, p = 0;
-    FOR (i, 0, n) {
-        if (i < r) RL[i] = min(RL[2 * p - i], r - i);
-        else RL[i] = 1;
-        while (i - RL[i] >= 0 && i + RL[i] < n && a[i - RL[i]] == a[i + RL[i]])
-            RL[i]++;
-        if (RL[i] + i - 1 > r) { r = RL[i] + i - 1; p = i; }
-    }
-    FOR (i, 0, n) --RL[i];
+// 注意 N 应该是字符串长度的二倍
+// 注意字符串从 1 开始编号
+int pal[N];
+void init(char *s) {
+    for (int i = n; i; --i) s[i * 2] = s[i], s[i * 2 + 1] = '#';
+    s[0] = s[1] = '#';
+    n = 2 * n + 1;
 }
-
+void manacher(char *s) {
+	int p = 0, pos = 0; // p 是当前右端点最大的回文串，pos 是这个回文串的中心。
+	for (int i = 1; i <= n; ++i) {
+		if (p > i) pal[i] = min(p - i + 1, pal[(pos << 1) - i]);
+		else pal[i] = 1;
+		while (s[i + pal[i]] == s[i - pal[i]]) ++pal[i];
+		if (smax(p, i + pal[i] - 1)) pos = i;
+	}
+}
 ```
 
 ## 哈希
@@ -465,7 +477,47 @@ LL Hash2D::pwx[N], Hash2D::pwy[N];
 
 ## 后缀数组
 
-构造时间：$O(L \log L)$；查询时间 $O(\log L)$。`suffix` 数组是排好序的后缀下标， `suffix` 的反数组是后缀数组。
+- hkk 版的后缀数组（写得比较麻烦）
+
+```cpp
+// 注意字符串从 1 开始编号
+int sa[N], rk[N], _sec[N], fre[N], h[N];
+void makeSA() {
+	int m = max(n, 127);
+	int *rank = rk, *sec = _sec;
+	for (int i = 1; i <= m; ++i) fre[i] = 0;
+	for (int i = 1; i <= n; ++i) fre[rank[i] = s[i]]++;
+	for (int i = 1; i <= m; ++i) fre[i] += fre[i - 1];
+	for (int i = n; i >= 1; --i) sa[fre[rank[i]]--] = i;
+	for (int k = 1; k <= n; k <<= 1) {
+		int p = 0;
+		for (int i = n - k + 1; i <= n; ++i) sec[++p] = i;
+		for (int i = 1; i <= n; ++i) if (sa[i] > k) sec[++p] = sa[i] - k;
+
+		for (int i = 1; i <= m; ++i) fre[i] = 0;
+		for (int i = 1; i <= n; ++i) fre[rank[sec[i]]]++;
+		for (int i = 1; i <= m; ++i) fre[i] += fre[i - 1];
+		for (int i = n; i >= 1; --i) sa[fre[rank[sec[i]]]--] = sec[i];
+
+		swap(rank, sec);
+		p = rank[sa[1]] = 1;
+		for (int i = 2; i <= n; ++i)
+			rank[sa[i]] = (sec[sa[i]] == sec[sa[i - 1]] && sec[sa[i] + k] == sec[sa[i - 1] + k] ? p : ++p);
+		if (p >= n) break;
+	}
+    for (int i = 1; i <= n; ++i) rk[sa[i]] = i;
+}
+void getheight() {
+    for (int i = 1, k = 0; i <= n; ++i) {
+        if (k) --k;
+        int j = sa[rk[i] - 1];
+        while (s[i + k] == s[j + k]) ++k;
+        h[rk[i]] = k;
+    }
+}
+```
+
+- 原模板：构造时间：$O(L \log L)$；查询时间 $O(\log L)$。`suffix` 数组是排好序的后缀下标， `suffix` 的反数组是后缀数组。
 
 ```cpp
 #include <bits/stdc++.h>
@@ -698,25 +750,54 @@ int main() {
 + 前缀函数（每一个前缀的最长 border）
 
 ```cpp
-void get_pi(int a[], char s[], int n) {
-    int j = a[0] = 0;
-    FOR (i, 1, n) {
-        while (j && s[i] != s[j]) j = a[j - 1];
-        a[i] = j += s[i] == s[j];
-    }
+// 注意字符串从 1 开始编号
+int fa[N];
+void getfail(char *s) {
+	int p = 0;
+	fa[1] = 0;
+	for (int i = 2; i <= m; ++i) {
+		while (p && t[p + 1] != t[i]) p = fa[p];
+		if (t[p + 1] == t[i]) ++p;
+		fa[i] = p;
+	}
+}
+auto kmp(char *s, char *t) { // s 是文本串，t 是模板串
+	int p = 0;
+    vector<int> ans;
+	for (int i = 1; i <= n; ++i) {
+		while (p && t[p + 1] != s[i]) p = fa[p];
+		if (t[p + 1] == s[i]) ++p;
+		if (p == m) ans.push_back(i - m + 1);
+	}
+    return ans;
 }
 ```
 
 + Z 函数（每一个后缀和该字符串的 LCP 长度）
 
 ```cpp
-void get_z(int a[], char s[], int n) {
-    int l = 0, r = 0; a[0] = n;
-    FOR (i, 1, n) {
-        a[i] = i > r ? 0 : min(r - i + 1, a[i - l]);
-        while (i + a[i] < n && s[a[i]] == s[i + a[i]]) ++a[i];
-        if (i + a[i] - 1 > r) { l = i; r = i + a[i] - 1; }
-    }
+// 注意字符串从 1 开始编号
+int z[N], r[N];
+void get_z(char *s, int n) { // z : s 的每一个后缀和 s 的 LCP
+	z[1] = 0;
+	for (int i = 2, p = 1; i <= n; ++i) {
+		if (i + z[i - p + 1] < p + z[p]) z[i] = z[i - p + 1];
+		else {
+			z[i] = max(0, p + z[p] - i);
+			while (i + z[i] <= n && s[i + z[i]] == s[1 + z[i]]) ++z[i];
+			p = i;
+		}
+	}
+}
+void exkmp(char *s, int n, char *t, int m) { // r : s 的每一个后缀与 t 的 LCP，此时 z 数组是 t 串的 z 函数
+	for (int i = 1, p = 0; i <= n; ++i) {
+		if (i + z[i - p + 1] < p + r[p]) r[i]  = z[i - p + 1];
+		else {
+			r[i] = max(0, p + r[p] - i);
+			while (i + r[i] <= n && r[i] + 1 <= m && s[i + r[i]] == t[1 + r[i]]) ++r[i];
+			p = i;
+		}
+	}
 }
 ```
 

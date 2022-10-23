@@ -34,21 +34,17 @@ inline int get_max(int x, int y, int xx, int yy) {
 + 一维
 
 ```cpp
-struct RMQ {
-    int f[22][M];
-    inline int highbit(int x) { return 31 - __builtin_clz(x); }
-    void init(int* v, int n) {
-        FOR (i, 0, n) f[0][i] = v[i];
-        FOR (x, 1, highbit(n) + 1)
-            FOR (i, 0, n - (1 << x) + 1)
-                f[x][i] = min(f[x - 1][i], f[x - 1][i + (1 << (x - 1))]);
-    }
-    int get_min(int l, int r) {
-        assert(l <= r);
-        int t = highbit(r - l + 1);
-        return min(f[t][l], f[t][r - (1 << t) + 1]);
-    }
-} rmq;
+int f[N][LOG];
+void init() {
+    for (int i = 1; i <= n; ++i) f[i][0] = a[i];
+    for (int j = 1; j < LOG; ++j)
+        for (int i = 1; i + (1 << j) - 1 <= n; ++i)
+            f[i][j] = max(f[i][j - 1], f[i + (1 << (j - 1))][j - 1]);
+}
+int getmax(int l, int r) {
+    int k = log2(r - l + 1); // 使用 g++ 编译可以使用 __lg
+    return max(f[l][k], f[r - (1 << k) + 1][k]);
+}
 ```
 
 ## 线段树
@@ -483,8 +479,6 @@ namespace kd {
     }
 }
 ```
-
-
 
 ## 树状数组
 
