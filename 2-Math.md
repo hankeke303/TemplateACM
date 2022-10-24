@@ -1391,3 +1391,23 @@ for (LL l = 1, v, r; l <= N; l = r + 1) {
 + 打表找规律
 + 寻找一类必胜态（如对称局面）
 + 直接博弈 dp
+
+## 线性基
+
+```cpp
+constexpr int M = 64;
+ull b[M];
+bool ins(ull x) {
+    for (int i = M - 1; ~i; --i) if ((x >> i) & 1) {
+        if (b[i]) x ^= b[i];
+        else { b[i] = x; return true; }
+    }
+    return false;
+}
+ull getmax() {
+    ull ans = 0;
+    for (int i = M - 1; ~i; --i) smax(ans, ans ^ b[i]);
+    return ans;
+}
+```
+
