@@ -530,6 +530,28 @@ FOR (i, 1, N)
 
 ### NTT
 
+- hkk 版
+
+```cpp
+void ntt(int *a, int n, int f = 1) { // a 是要 ntt 的序列，n 是长度（2^l），f 是正向运算(1)还是逆向运算（-1）
+	for (int i = 0, j = 0; i < n; ++i) {
+		if (i < j) std::swap(a[i], a[j]);
+		for (int l = n >> 1; (j ^= l) < l; l >>= 1) ;
+	}
+	for (int i = 1; i < n; i <<= 1) {
+		int w = fpow(f > 0 ? G : Gi, (P - 1) / (i << 1));
+		for (int j = 0; j < n; j += (i << 1))
+			for (int k = 0, e = 1; k < i; ++k, e = (ll)e * w % P) {
+				int x = a[j + k], y = (ll)e * a[i + j + k] % P;
+				a[j + k] = smod(x + y), a[i + j + k] = smod(x - y + P);
+			}
+	}
+	if (f < 0) for (int i = 0, p = fpow(n, P - 2); i < n; ++i) a[i] = (ll)a[i] * p % P;
+}
+```
+
+- 模板原版
+
 ```cpp
 LL wn[N << 2], rev[N << 2];
 int NTT_init(int n_) {
@@ -754,6 +776,36 @@ LL bin(LL x, LL n, LL MOD) {
 
 ## 高斯消元
 
+### 简略版（只要唯一解，不需要求解自由变量的个数）
+
+```cpp
+const double EPS = 1E-9;
+int n;
+vector<vector<double> > a(n, vector<double>(n));
+
+double det = 1;
+for (int i = 0; i < n; ++i) {
+  int k = i;
+  for (int j = i + 1; j < n; ++j)
+    if (abs(a[j][i]) > abs(a[k][i])) k = j;
+  if (abs(a[k][i]) < EPS) {
+    det = 0;
+    break;
+  }
+  swap(a[i], a[k]);
+  if (i != k) det = -det;
+  det *= a[i][i];
+  for (int j = i + 1; j < n; ++j) a[i][j] /= a[i][i];
+  for (int j = 0; j < n; ++j)
+    if (j != i && abs(a[j][i]) > EPS)
+      for (int k = i + 1; k < n; ++k) a[j][k] -= a[i][k] * a[j][i];
+}
+
+cout << det;
+```
+
+### 完整版
+
 * n - 方程个数，m - 变量个数， a 是 n \* \(m + 1\) 的增广矩阵，free 是否为自由变量
 * 返回自由变量个数，-1 无解
 
@@ -848,6 +900,8 @@ int gauss(LD a[maxn][maxn], int n, int m) {
 
 ## 质因数分解
 
+hkk 注：感觉像这样枚举 sqrt 以内的所有质数很慢……hkk 一般是在筛素数的时候记录下每个数的最小质因子，然后不断地除下去，复杂度 $O(\log)$。
+
 * 前置模板：素数筛
 
 * 带指数
@@ -891,6 +945,8 @@ void get_factor(LL x) {
 
 ## 原根
 
+* 定义：设m是正整数，a是整数，若a模m的阶等于φ(m)，则称a为模m的一个原根。（其中φ(m)表示m的欧拉函数）
+* 性质：假设一个数 $g$ 是 $P$ 的原根，那么 $g^i \bmod P$ 的结果两两不同，且有 $1<g<P$，$0<i<P$，归根到底就是 $g^{P-1} = 1 \pmod P$ 当且仅当指数为 $P-1$ 的时候成立(这里 $P$ 是素数)。简单来说，$g^i \bmod p ≠ g^j \bmod p$（$p$为素数），其中 $i\neq j$且 $i, j$ 介于 $1$ 至 $p-1$ 之间，则 $g$ 为 $p$ 的原根。
 * 前置模板：素数筛，快速幂，分解质因数
 * 要求 p 为质数
 
@@ -1011,6 +1067,8 @@ $2S = 2a+b-2$
 
 ## 二次剩余
 
+- 定义：$X^2$ 在数论中，特别在同余理论里，一个整数 $X$ 对另一个整数 $p$ 的**二次剩余**（英语：Quadratic residue）指 $X$ 的平方除以 $p$ 得到的余数。当存在某个 $X$，式子 $x^2\equiv d\pmod p$ 成立时，称 $d$ 是模 $p$ 的二次剩余。
+
 URAL 1132
 
 ```cpp
@@ -1065,8 +1123,41 @@ int main() {
 }
 ```
 
+## （扩展）中国剩余定理
 
-## 中国剩余定理
+- hkk 版
+
+```cpp
+ll smod(ll x, ll P) { return x < 0 ? x + P : (x >= P ? x - P : x); }
+ll fmul(ll x, ll y, ll P) {
+	ll ans = 0;
+	x = smod(x, P);
+	for (; y; y >>= 1, x = smod(x + x, P))
+		if (y & 1) ans = smod(ans + x, P);
+	return ans;
+}
+ll exgcd(ll a, ll b, ll &x, ll &y) {
+	if (!b) return x = 1, y = 0, a;
+	ll t = exgcd(b, a % b, y, x);
+	y -= a / b * x;
+	return t;
+}
+ll exCRT() {
+	ll P = p[1], ans = a[1];
+	for (int i = 2; i <= n; ++i) {
+		ll a1 = P, a2 = p[i], c = smod((a[i] - ans) % a2 + a2, a2);
+		ll x, y, d = exgcd(a1, a2, x, y);
+		if (a1 % d) return -1;
+		x = fmul(x, c / d, a2 / d);
+		ans += x * P;
+		P *= a2 / d;
+		ans = smod(ans % P + P, P);
+	}
+	return ans;
+}
+```
+
+- 模板原版
 
 + 无解返回 -1
 + 前置模板：扩展欧几里得
@@ -1088,6 +1179,28 @@ LL CRT(LL *m, LL *r, LL n) {
     return R >= 0 ? R : R + M;
 }
 
+```
+
+- 这儿还有一份 py 版，可以用高精度
+
+```python
+def exgcd(a, b):
+    if not b:
+        return a, 1, 0
+    d, x, y = exgcd(b, a % b)
+    return d, y, x - a // b * y
+
+n = int(input())
+m, a = map(int, input().split())
+for i in range(1, n):
+    m2, a2 = map(int, input().split())
+    d, x, y = exgcd(m, m2)
+    x *= (a2 - a) // d
+    a += x * m
+    m = m // d * m2
+    a = ((a % m) + m) % m
+
+print(a)
 ```
 
 ## 伯努利数和等幂求和
