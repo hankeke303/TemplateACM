@@ -182,6 +182,56 @@ struct IntervalTree {
 } IT;
 ```
 
+## zkw 线段树
+
++ 单点加，区间和/max/min
+
+```cpp
+namespace zkw_segment_tree{
+	const int inf=0x7fffffff;
+	const int N=262143;
+	//set to 2^{logn}-1
+	
+	int T1[N<<1|10],T2[N<<1|10],T3[N<<1|10];
+	//Çø¼äºÍ£¬Çø¼ämax£¬Çø¼ämin 
+	
+	void modify(int x,int v) {
+		for(T1[x+=N]+=v,T2[x]+=v,T3[x]+=v;x>>=1;) {
+			T1[x]+=v;
+			T2[x]=std::max(T2[x<<1],T2[x<<1|1]);
+			T3[x]=std::min(T3[x<<1],T3[x<<1|1]);
+		}
+	}
+	
+	int query1(int l,int r) {
+		int ret=0;
+		for(l+=N-1,r+=N+1;l^r^1;l>>=1,r>>=1) {
+			if(l&1^1) ret+=T1[l^1];
+			if(r&1) ret+=T1[r^1];
+		}
+		return ret;
+	}
+	
+	int query2(int l,int r) {
+		int ret=0;
+		for(l+=N-1,r+=N+1;l^r^1;l>>=1,r>>=1) {
+			if(l&1^1) ret=std::max(T2[l^1],ret);
+			if(r&1) ret=std::max(T2[r^1],ret);
+		}
+		return ret;
+	}
+	
+	int query3(int l,int r) {
+		int ret=inf;
+		for(l+=N-1,r+=N+1;l^r^1;l>>=1,r>>=1) {
+			if(l&1^1) ret=std::min(T3[l^1],ret);
+			if(r&1) ret=std::min(T3[r^1],ret);
+		}
+		return ret;
+	}
+}
+```
+
 ## 均摊复杂度线段树
 
 + 区间取 min，区间求和。
