@@ -1,5 +1,24 @@
 # 图论
 
+## 最短路
+
+### Dijkstra
+
+```cpp
+int dis[N]; bool vis[N];
+void dijkstra(int s) {
+    static priority_queue<pii, vector<pii>, greater<pii>> q;
+    memset(dis, 0x3f, sizeof(dis)); // 最好结合点数清空范围，否则会很慢
+    dis[s] = 0, q.push(pii(dis[s], s));
+    while (!q.empty()) {
+        int x = q.top().se; q.pop();
+        if (vis[x]) continue;
+        vis[x] = 1;
+        for fec(i, x, y) if (!vis[y] && smin(dis[y], dis[x] + g[i].w)) q.push(pii(dis[y], y)); // for fec 是枚举 x 的每一个孩子，边存进 i，孩子存 y
+    }
+}
+```
+
 ## LCA
 
 + 倍增
@@ -28,7 +47,7 @@ int lca(int u, int v) {
 
 ## 网络流
 
-+ 最大流
+### 最大流 Dinic
 
 ```cpp
 struct E {
@@ -101,7 +120,41 @@ struct Dinic {
 } DC;
 ```
 
-+ 费用流
+### 最大流 ISAP
+
+```cpp
+int dis[N], gap[N], cur[N], q[N];
+void bfs() {
+	int hd = 0, tl = 0;
+	q[++tl] = T, ++gap[dis[T] = 1];
+	while (hd < tl) {
+		int x = q[++hd];
+		for fec(i, x, y) if (!dis[y] && !g[i].f) dis[y] = dis[x] + 1, ++gap[dis[y]], q[++tl] = y;
+	}
+}
+int dfs(int x, int a) {
+	if (x == T || !a) return a;
+	int flow = 0, f;
+	for (int &i = cur[x]; i; i = g[i].ne)
+		if (dis[x] == dis[g[i].to] + 1 && (f = dfs(g[i].to, std::min(a, g[i].f)))) {
+			g[i].f -= f, g[i ^ 1].f += f;
+			a -= f, flow += f;
+			if (!a) return flow;
+		}
+	--gap[dis[x]];
+	if (!gap[dis[x]]) dis[S] = nod + 1;
+	++gap[++dis[x]];
+	return flow;
+}
+int ISAP() {
+	int ans = 0;f
+	bfs();
+	while (dis[S] <= nod) memcpy(cur, head, sizeof(head)), ans += dfs(S, INF);
+	return ans;
+}
+```
+
+### 费用流
 
 ```cpp
 struct E {
@@ -171,7 +224,50 @@ struct MCMF {
 } MM;
 ```
 
-+ zkw 费用流（代码长度没有优势）
+### zkw 费用流
+
+- hkk 版
+
+```cpp
+bool spfa() {
+	std::fill(dis + 1, dis + n + 1, INF);
+	int hd = 0, tl = 0;
+	dis[s] = 0, q[++tl] = s, inq[s] = 1;
+	while (hd < tl) {
+		int x = q[++hd];
+		inq[x] = 0;
+		for fec(i, x, y) if (g[i].f && smin(dis[y], dis[x] + g[i].w))
+			if(!inq[y]) q[++tl] = y;
+	}
+	return dis[t] < INF;
+}
+int dfs(int x, int a) {
+	vis[x] = 1;
+	if (x == t || !a) return a;
+	int flow = 0, f;
+	for (int &i = cur[x]; i; i = g[i].ne)
+		if (!vis[g[i].to] && g[i].f && dis[g[i].to] == dis[x] + g[i].w && (f = dfs(g[i].to, std::min(a, g[i].f)))) {
+			g[i].f -= f, g[i ^ 1].f += f;
+			ans += f * g[i].w, a -= f, flow += f;
+			if (!a) break;
+		}
+	return flow;
+}
+int mcmf() {
+	int ans = 0;
+	while (spfa()) {
+		do {
+			memcpy(cur, head, sizeof(int) * (n + 1));
+			memset(vis, 0, sizeof(bool) * (n + 1));
+			ans += dfs(s, INF);
+		} while (vis[t]);
+	}
+	return ans;
+}
+```
+
+- 模板原版
+
 + 不允许有负权边
 
 ```cpp
@@ -253,13 +349,14 @@ struct MCMF {
 } MM;
 ```
 
-+ 带下界网络流：
-  + 无源汇：$u \rightarrow v$ 边容量为 $[l,r]$，连容量 $r-l$，虚拟源点到 $v$ 连 $l$，$u$ 到虚拟汇点连 $l$。
-  + 有源汇：为了让流能循环使用，连 $T \rightarrow S$，容量 $\infty$。
-  + 最大流：跑完可行流后，加 $S' \rightarrow S$，$T \rightarrow T'$，最大流就是答案（$T \rightarrow S$ 的流量自动退回去了，这一部分就是下界部分的流量）。
-  + 最小流：$T$ 到 $S$ 的那条边的实际流量，减去删掉那条边后 $T$ 到 $S$ 的最大流。
-  + 网上说可能会减成负的，还要有限地供应 $S$ 之后，再跑一遍 $S$ 到 $T$ 的。
-  + 费用流：必要的部分（下界以下的）不要钱，剩下的按照最大流。
+### 带下界网络流：
+
++ 无源汇：$u \rightarrow v$ 边容量为 $[l,r]$，连容量 $r-l$，虚拟源点到 $v$ 连 $l$，$u$ 到虚拟汇点连 $l$。
++ 有源汇：为了让流能循环使用，连 $T \rightarrow S$，容量 $\infty$。
++ 最大流：跑完可行流后，加 $S' \rightarrow S$，$T \rightarrow T'$，最大流就是答案（$T \rightarrow S$ 的流量自动退回去了，这一部分就是下界部分的流量）。
++ 最小流：$T$ 到 $S$ 的那条边的实际流量，减去删掉那条边后 $T$ 到 $S$ 的最大流。
++ 网上说可能会减成负的，还要有限地供应 $S$ 之后，再跑一遍 $S$ 到 $T$ 的。
++ 费用流：必要的部分（下界以下的）不要钱，剩下的按照最大流。
 
 ## 树上路径交
 
@@ -435,6 +532,42 @@ int main() {
 
 + 初始化需要清空 `clk`
 + 使用 `hld::predfs(1, 1); hld::dfs(1, 1);`
+
+- hkk 版
+
+```cpp
+void dfs1(int x, int fa = 0) {
+	dep[x] = dep[fa] + 1, f[x] = fa, siz[x] = 1;
+	for fec(i, x, y) if (y != fa) dfs1(y, x), siz[x] += siz[y], siz[y] > siz[son[x]] && (son[x] = y);
+}
+void dfs2(int x, int pa) {
+	top[x] = pa, dfn[x] = ++dfc, pre[dfc] = x;
+	if (son[x]) dfs2(son[x], pa);
+	for fec(i, x, y) if (y != f[x] && y != son[x]) dfs2(y, y);
+}
+void modify_path(int x, int y, int k) {
+	while (top[x] != top[y]) {
+		if (dep[top[x]] < dep[top[y]]) std::swap(x, y);
+		// do some thing 重链的范围是 dfn[top[x] 到 dfn[x]
+		x = f[top[x]];
+	}
+	if (dep[x] > dep[y]) std::swap(x, y);
+    // do some thing 最后一个重链上有用的范围是 dfn[x] 到 dfn[y]
+}
+int sum_path(int x, int y) {
+	int ans = 0;
+	while (top[x] != top[y]) {
+		if (dep[top[x]] < dep[top[y]]) std::swap(x, y);
+		// 统计重链信息 重链的范围是 dfn[top[x] 到 dfn[x]
+		x = f[top[x]];
+	}
+	if (dfn[x] > dfn[y]) std::swap(x, y);
+    // ans 加上最后一条重链，最后一个重链上有用的范围是 dfn[x] 到 dfn[y]
+	return ans;
+}
+```
+
+- 模板原版
 
 ```cpp
 int fa[N], dep[N], idx[N], out[N], ridx[N];

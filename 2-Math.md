@@ -526,163 +526,6 @@ FOR (i, 1, N)
     FOR (j, 1, i + 1) S[i][j] = (S[i - 1][j - 1] + j * S[i - 1][j]) % MOD;
 ```
 
-## FFT & NTT & FWT
-
-### NTT
-
-- hkk 版
-
-```cpp
-void ntt(int *a, int n, int f = 1) { // a 是要 ntt 的序列，n 是长度（2^l），f 是正向运算(1)还是逆向运算（-1）
-	for (int i = 0, j = 0; i < n; ++i) {
-		if (i < j) std::swap(a[i], a[j]);
-		for (int l = n >> 1; (j ^= l) < l; l >>= 1) ;
-	}
-	for (int i = 1; i < n; i <<= 1) {
-		int w = fpow(f > 0 ? G : Gi, (P - 1) / (i << 1));
-		for (int j = 0; j < n; j += (i << 1))
-			for (int k = 0, e = 1; k < i; ++k, e = (ll)e * w % P) {
-				int x = a[j + k], y = (ll)e * a[i + j + k] % P;
-				a[j + k] = smod(x + y), a[i + j + k] = smod(x - y + P);
-			}
-	}
-	if (f < 0) for (int i = 0, p = fpow(n, P - 2); i < n; ++i) a[i] = (ll)a[i] * p % P;
-}
-```
-
-- 模板原版
-
-```cpp
-LL wn[N << 2], rev[N << 2];
-int NTT_init(int n_) {
-    int step = 0; int n = 1;
-    for ( ; n < n_; n <<= 1) ++step;
-    FOR (i, 1, n)
-        rev[i] = (rev[i >> 1] >> 1) | ((i & 1) << (step - 1));
-    int g = bin(G, (MOD - 1) / n, MOD);
-    wn[0] = 1;
-    for (int i = 1; i <= n; ++i)
-        wn[i] = wn[i - 1] * g % MOD;
-    return n;
-}
-
-void NTT(LL a[], int n, int f) {
-    FOR (i, 0, n) if (i < rev[i])
-        std::swap(a[i], a[rev[i]]);
-    for (int k = 1; k < n; k <<= 1) {
-        for (int i = 0; i < n; i += (k << 1)) {
-            int t = n / (k << 1);
-            FOR (j, 0, k) {
-                LL w = f == 1 ? wn[t * j] : wn[n - t * j];
-                LL x = a[i + j];
-                LL y = a[i + j + k] * w % MOD;
-                a[i + j] = (x + y) % MOD;
-                a[i + j + k] = (x - y + MOD) % MOD;
-            }
-        }
-    }
-    if (f == -1) {
-        LL ninv = get_inv(n, MOD);
-        FOR (i, 0, n)
-            a[i] = a[i] * ninv % MOD;
-    }
-}
-```
-
-### FFT
-
-+ n 需补成 2 的幂 （n 必须超过 a 和 b 的最高指数之和）
-
-```cpp
-typedef double LD;
-const LD PI = acos(-1);
-struct C {
-    LD r, i;
-    C(LD r = 0, LD i = 0): r(r), i(i) {}
-};
-C operator + (const C& a, const C& b) {
-    return C(a.r + b.r, a.i + b.i);
-}
-C operator - (const C& a, const C& b) {
-    return C(a.r - b.r, a.i - b.i);
-}
-C operator * (const C& a, const C& b) {
-    return C(a.r * b.r - a.i * b.i, a.r * b.i + a.i * b.r);
-}
-
-void FFT(C x[], int n, int p) {
-    for (int i = 0, t = 0; i < n; ++i) {
-        if (i > t) swap(x[i], x[t]);
-        for (int j = n >> 1; (t ^= j) < j; j >>= 1);
-    }
-    for (int h = 2; h <= n; h <<= 1) {
-        C wn(cos(p * 2 * PI / h), sin(p * 2 * PI / h));
-        for (int i = 0; i < n; i += h) {
-            C w(1, 0), u;
-            for (int j = i, k = h >> 1; j < i + k; ++j) {
-                u = x[j + k] * w;
-                x[j + k] = x[j] - u;
-                x[j] = x[j] + u;
-                w = w * wn;
-            }
-        }
-    }
-    if (p == -1)
-        FOR (i, 0, n)
-            x[i].r /= n;
-}
-
-void conv(C a[], C b[], int n) {
-    FFT(a, n, 1);
-    FFT(b, n, 1);
-    FOR (i, 0, n)
-        a[i] = a[i] * b[i];
-    FFT(a, n, -1);
-}
-```
-
-### FWT
-
-+ $C_k=\sum_{i \oplus j=k} A_i B_j$
-+ FWT 完后需要先模一遍
-
-```cpp
-template<typename T>
-void fwt(LL a[], int n, T f) {
-    for (int d = 1; d < n; d *= 2)
-        for (int i = 0, t = d * 2; i < n; i += t)
-            FOR (j, 0, d)
-                f(a[i + j], a[i + j + d]);
-}
-
-void AND(LL& a, LL& b) { a += b; }
-void OR(LL& a, LL& b) { b += a; }
-void XOR (LL& a, LL& b) {
-    LL x = a, y = b;
-    a = (x + y) % MOD;
-    b = (x - y + MOD) % MOD;
-}
-void rAND(LL& a, LL& b) { a -= b; }
-void rOR(LL& a, LL& b) { b -= a; }
-void rXOR(LL& a, LL& b) {
-    static LL INV2 = (MOD + 1) / 2;
-    LL x = a, y = b;
-    a = (x + y) * INV2 % MOD;
-    b = (x - y + MOD) * INV2 % MOD;
-}
-```
-
-+ FWT 子集卷积
-
-```text
-a[popcount(x)][x] = A[x]
-b[popcount(x)][x] = B[x]
-fwt(a[i]) fwt(b[i])
-c[i + j][x] += a[i][x] * b[j][x]
-rfwt(c[i])
-ans[x] = c[popcount(x)][x]
-```
-
 ## simpson 自适应积分
 
 ```cpp
@@ -1408,6 +1251,614 @@ ull getmax() {
     ull ans = 0;
     for (int i = M - 1; ~i; --i) smax(ans, ans ^ b[i]);
     return ans;
+}
+```
+
+## 多项式相关
+
+### NTT
+
+- hkk 版
+
+```cpp
+void ntt(int *a, int n, int f = 1) { // a 是要 ntt 的序列，n 是长度（2^l），f 是正向运算(1)还是逆向运算（-1）
+	for (int i = 0, j = 0; i < n; ++i) {
+		if (i < j) std::swap(a[i], a[j]);
+		for (int l = n >> 1; (j ^= l) < l; l >>= 1) ;
+	}
+	for (int i = 1; i < n; i <<= 1) {
+		int w = fpow(f > 0 ? G : Gi, (P - 1) / (i << 1));
+		for (int j = 0; j < n; j += (i << 1))
+			for (int k = 0, e = 1; k < i; ++k, e = (ll)e * w % P) {
+				int x = a[j + k], y = (ll)e * a[i + j + k] % P;
+				a[j + k] = smod(x + y), a[i + j + k] = smod(x - y + P);
+			}
+	}
+	if (f < 0) for (int i = 0, p = fpow(n, P - 2); i < n; ++i) a[i] = (ll)a[i] * p % P;
+}
+```
+
+- 模板原版
+
+```cpp
+LL wn[N << 2], rev[N << 2];
+int NTT_init(int n_) {
+    int step = 0; int n = 1;
+    for ( ; n < n_; n <<= 1) ++step;
+    FOR (i, 1, n)
+        rev[i] = (rev[i >> 1] >> 1) | ((i & 1) << (step - 1));
+    int g = bin(G, (MOD - 1) / n, MOD);
+    wn[0] = 1;
+    for (int i = 1; i <= n; ++i)
+        wn[i] = wn[i - 1] * g % MOD;
+    return n;
+}
+
+void NTT(LL a[], int n, int f) {
+    FOR (i, 0, n) if (i < rev[i])
+        std::swap(a[i], a[rev[i]]);
+    for (int k = 1; k < n; k <<= 1) {
+        for (int i = 0; i < n; i += (k << 1)) {
+            int t = n / (k << 1);
+            FOR (j, 0, k) {
+                LL w = f == 1 ? wn[t * j] : wn[n - t * j];
+                LL x = a[i + j];
+                LL y = a[i + j + k] * w % MOD;
+                a[i + j] = (x + y) % MOD;
+                a[i + j + k] = (x - y + MOD) % MOD;
+            }
+        }
+    }
+    if (f == -1) {
+        LL ninv = get_inv(n, MOD);
+        FOR (i, 0, n)
+            a[i] = a[i] * ninv % MOD;
+    }
+}
+```
+
+### FFT
+
++ n 需补成 2 的幂 （n 必须超过 a 和 b 的最高指数之和）
+
+```cpp
+struct Complex {
+	double x, y;
+	Complex(double x = 0, double y = 0) : x(x), y(y) { }
+	Complex operator + (const Complex &a) const { return Complex(x + a.x, y + a.y); }
+	Complex operator - (const Complex &a) const { return Complex(x - a.x, y - a.y); }
+	Complex operator * (const Complex &a) const { return Complex(x * a.x - y * a.y, x * a.y + y * a.x); }
+} a[N], b[N];
+
+void fft(Complex *a, int n, int f = 1) { // a 是要 ntt 的序列，n 是长度（2^l），f 是正向运算(1)还是逆向运算（-1）
+	for (int i = 0, j = 0; i < n; ++i) {
+		if (i < j) std::swap(a[i], a[j]);
+		for (int l = n >> 1; (j ^= l) < l; l >>= 1) ;
+	}
+	for (int i = 1; i < n; i <<= 1) {
+		Complex w(cos(PI / i), f * sin(PI / i));
+		for (int j = 0; j < n; j += (i << 1)) {
+			Complex e(1, 0);
+			for (int k = 0; k < i; ++k, e = e * w) {
+				Complex x = a[j + k], y = e * a[i + j + k];
+				a[j + k] = x + y, a[i + j + k] = x - y;
+			}
+		}
+	}
+	if (f < 0) for (int i = 0; i < n; ++i) a[i].x /= n;
+}
+```
+
+### FWT
+
++ $C_k=\sum_{i \oplus j=k} A_i B_j$
++ FWT 完后需要先模一遍
+
+```cpp
+template<typename T>
+void fwt(LL a[], int n, T f) {
+    for (int d = 1; d < n; d *= 2)
+        for (int i = 0, t = d * 2; i < n; i += t)
+            FOR (j, 0, d)
+                f(a[i + j], a[i + j + d]);
+}
+
+void AND(LL& a, LL& b) { a += b; }
+void OR(LL& a, LL& b) { b += a; }
+void XOR (LL& a, LL& b) {
+    LL x = a, y = b;
+    a = (x + y) % MOD;
+    b = (x - y + MOD) % MOD;
+}
+void rAND(LL& a, LL& b) { a -= b; }
+void rOR(LL& a, LL& b) { b -= a; }
+void rXOR(LL& a, LL& b) {
+    static LL INV2 = (MOD + 1) / 2;
+    LL x = a, y = b;
+    a = (x + y) * INV2 % MOD;
+    b = (x - y + MOD) * INV2 % MOD;
+}
+```
+
++ FWT 子集卷积
+
+```text
+a[popcount(x)][x] = A[x]
+b[popcount(x)][x] = B[x]
+fwt(a[i]) fwt(b[i])
+c[i + j][x] += a[i][x] * b[j][x]
+rfwt(c[i])
+ans[x] = c[popcount(x)][x]
+```
+
+### 多项式求逆
+
+前置：NTT、取模模板
+
+```cpp
+void getinv(int *f) {
+	g[0] = fpow(f[0], P - 2);
+	for (int d = 2; d < (n << 1); d <<= 1) {
+		int l = d << 1;
+		for (int i = 0; i < d; ++i) A[i] = f[i];
+		ntt(A, l, 1), ntt(g, l, 1);
+		for (int i = 0; i < l; ++i) g[i] = g[i] * (2 - (ll)A[i] * g[i] % P + P) % P;
+		ntt(g, l, -1);
+		for (int i = d; i < l; ++i) g[i] = 0;
+	}
+}
+```
+
+### 分治 fft
+
+```cpp
+void cdqfft(int l, int r) { // 注意：l, r 从 0 开始编号，一般调用时取 [0, n - 1]
+	if (l == r) return;
+	int mid = (l + r) >> 1, L = 1;
+	cdqfft(l, mid);
+	while (L <= (mid - l + r - l)) L <<= 1;
+	std::fill(A, A + L, 0), std::fill(B, B + L, 0);
+	for (int i = 0; i < mid - l + 1; ++i) A[i] = f[i + l];
+	for (int i = 1; i <= r - l; ++i) B[i] = g[i];
+	ntt(A, L, 1), ntt(B, L, 1);
+	for (int i = 0; i < L; ++i) A[i] = (ll)A[i] * B[i] % P;
+	ntt(A, L, -1);
+	for (int i = mid - l + 1; i < r - l + 1; ++i) sadd(f[i + l], A[i]);
+	cdqfft(mid + 1, r);
+}
+```
+
+### 多项式模板大全
+
+来自某位大佬
+
+```cpp
+namespace Polynomial {
+    using Poly = std::vector<int>;
+    constexpr int P(998244353), G(3);
+    inline void inc(int &x, int y) { (x += y) >= P ? x -= P : 0; }
+    inline int mod(int64_t x) { return x % P; }
+    inline int fpow(int x, int k = P - 2) {
+        int r = 1;
+        for (; k; k >>= 1, x = 1LL * x * x % P)
+            if (k & 1) r = 1LL * r * x % P;
+        return r;
+    }
+    template <int N>
+    std::array<int, N> getOmega() {
+        std::array<int, N> w;
+        for (int i = N >> 1, x = fpow(G, (P - 1) / N); i; i >>= 1, x = 1LL * x * x % P) {
+            w[i] = 1;
+            for (int j = 1; j < i; j++) w[i + j] = 1LL * w[i + j - 1] * x % P;
+        }
+        return w;
+    }
+    auto w = getOmega<1 << 18>();
+    Poly &operator*=(Poly &a, int b) {
+        for (auto &x : a) x = 1LL * x * b % P;
+        return a;
+    }
+    Poly operator*(Poly a, int b) { return a *= b; }
+    Poly operator*(int a, Poly b) { return b * a; }
+    Poly &operator/=(Poly &a, int b) { return a *= fpow(b); }
+    Poly operator/(Poly a, int b) { return a /= b; }
+    Poly &operator+=(Poly &a, Poly b) {
+        a.resize(std::max(a.size(), b.size()));
+        for (int i = 0; i < b.size(); i++) inc(a[i], b[i]);
+        return a;
+    }
+    Poly operator+(Poly a, Poly b) { return a += b; }
+    Poly &operator-=(Poly &a, Poly b) {
+        a.resize(std::max(a.size(), b.size()));
+        for (int i = 0; i < b.size(); i++) inc(a[i], P - b[i]);
+        return a;
+    }
+    Poly operator-(Poly a, Poly b) { return a -= b; }
+    Poly operator-(Poly a) {
+        for (auto &x : a) x ? x = P - x : 0;
+        return a;
+    }
+    Poly &operator>>=(Poly &a, int x) {
+        if (x >= (int)a.size()) {
+            a.clear();
+        } else {
+            a.erase(a.begin(), a.begin() + x);
+        }
+        return a;
+    }
+    Poly &operator<<=(Poly &a, int x) {
+        a.insert(a.begin(), x, 0);
+        return a;
+    }
+    Poly operator>>(Poly a, int x) { return a >>= x; }
+    Poly operator<<(Poly a, int x) { return a <<= x; }
+    inline Poly &dotEq(Poly &a, Poly b) {
+        assert(a.size() == b.size());
+        for (int i = 0; i < a.size(); i++) a[i] = 1LL * a[i] * b[i] % P;
+        return a;
+    }
+    inline Poly dot(Poly a, Poly b) { return dotEq(a, b); }
+    void norm(Poly &a) {
+        if (!a.empty()) {
+            a.resize(1 << std::__lg(a.size() * 2 - 1));
+        }
+    }
+    void dft(int *a, int n) {
+        assert((n & n - 1) == 0);
+        for (int k = n >> 1; k; k >>= 1) {
+            for (int i = 0; i < n; i += k << 1) {
+                for (int j = 0; j < k; j++) {
+                    int y = a[i + j + k];
+                    a[i + j + k] = 1LL * (a[i + j] - y + P) * w[k + j] % P;
+                    inc(a[i + j], y);
+                }
+            }
+        }
+    }
+    void idft(int *a, int n) {
+        assert((n & n - 1) == 0);
+        for (int k = 1; k < n; k <<= 1) {
+            for (int i = 0; i < n; i += k << 1) {
+                for (int j = 0; j < k; j++) {
+                    int x = a[i + j], y = 1LL * a[i + j + k] * w[k + j] % P;
+                    a[i + j + k] = x - y < 0 ? x - y + P : x - y;
+                    inc(a[i + j], y);
+                }
+            }
+        }
+        for (int i = 0, inv = P - (P - 1) / n; i < n; i++) a[i] = 1LL * a[i] * inv % P;
+        std::reverse(a + 1, a + n);
+    }
+    void dft(Poly &a) { dft(a.data(), a.size()); }
+    void idft(Poly &a) { idft(a.data(), a.size()); }
+    // expand dft of length n to 2n
+    void dftDoubling(int *x, int n) {
+        std::copy_n(x, n, x + n);
+        idft(x + n, n);
+        for (int i = 0; i < n; i++) x[n + i] = 1LL * w[n + i] * x[n + i] % P;
+        dft(x + n, n);
+    }
+    Poly operator*(Poly a, Poly b) {
+        int len = a.size() + b.size() - 1;
+        if (a.size() <= 8 || b.size() <= 8) {
+            Poly c(len);
+            for (size_t i = 0; i < a.size(); i++)
+                for (size_t j = 0; j < b.size(); j++) c[i + j] = (c[i + j] + 1LL * a[i] * b[j]) % P;
+            return c;
+        }
+        int n = 1 << std::__lg(len - 1) + 1;
+        a.resize(n), b.resize(n);
+        dft(a), dft(b);
+        dotEq(a, b);
+        idft(a);
+        a.resize(len);
+        return a;
+    }
+    // poly inverse
+    // len(a) must be power of 2
+    // $O(n \log n)$
+    Poly invRec(Poly a) {
+        int n = a.size();
+        assert((n & n - 1) == 0);
+        if (n == 1) return { fpow(a[0]) };
+        int m = n >> 1;
+        Poly b = invRec(Poly(a.begin(), a.begin() + m)), c = b;
+        b.resize(n);
+        dft(a), dft(b), dotEq(a, b), idft(a);
+        for (int i = 0; i < m; i++) a[i] = 0;
+        for (int i = m; i < n; i++) a[i] = P - a[i];
+        dft(a), dotEq(a, b), idft(a);
+        for (int i = 0; i < m; i++) a[i] = c[i];
+        return a;
+    }
+    // arbitary length
+    Poly inverse(Poly a) {
+        int n = a.size();
+        norm(a);
+        a = invRec(a);
+        a.resize(n);
+        return a;
+    }
+    // get c where a = b * c + r, (len(a) = n, len(b) = m, len(c) = n - m + 1).
+    // $O(n \log n)$
+    Poly operator/(Poly a, Poly b) {
+        int n = a.size(), m = b.size();
+        if (n < m) return { 0 };
+        int k = 1 << std::__lg(n - m << 1 | 1);
+        std::reverse(a.begin(), a.end());
+        std::reverse(b.begin(), b.end());
+        a.resize(k), b.resize(k), b = invRec(b);
+        a = a * b;
+        a.resize(n - m + 1);
+        std::reverse(a.begin(), a.end());
+        return a;
+    }
+    // get {c, r}, len(c) = n - m + 1, len(r) = m - 1
+    // $O(n \log n)$
+    std::pair<Poly, Poly> operator%(Poly a, Poly b) {
+        int m = b.size();
+        Poly c = a / b;
+        b = b * c;
+        a.resize(m - 1);
+        for (int i = 0; i < m - 1; i++) inc(a[i], P - b[i]);
+        return { c, a };
+    }
+    // $\sqrt a$
+    // $O(n \log n)$
+    Poly sqrt(Poly a) {
+        int raw = a.size();
+        int d = 0;
+        while (d < raw && !a[d]) d++;
+        if (d == raw) return a;
+        if (d & 1) return {};
+        norm(a >>= d);
+        int len = a.size();
+        Poly b(len), binv(1), bsqr{ a[0] }, foo, bar;  // sqrt, sqrt_inv, sqrt_sqr
+        // auto sq = SqrtMod::sqrtMod(a[0], P);
+        // if (sq.empty()) return {};
+        // b[0] = sq[0], binv[0] = fpow(b[0]);
+        assert(a[0] == 1);
+        b[0] = binv[0] = 1;
+        auto shift = [](int x) { return (x & 1 ? x + P : x) >> 1; };  // quick div 2
+        for (int m = 1, n = 2; n <= len; m <<= 1, n <<= 1) {
+            foo.resize(n), bar = binv;
+            for (int i = 0; i < m; i++) {
+                foo[i + m] = a[i] + a[i + m] - bsqr[i];
+                if (foo[i + m] >= P) foo[i + m] -= P;
+                if (foo[i + m] < 0) foo[i + m] += P;
+                foo[i] = 0;
+            }
+            binv.resize(n);
+            dft(foo), dft(binv), dotEq(foo, binv), idft(foo);
+            for (int i = m; i < n; i++) b[i] = shift(foo[i]);
+            // inv
+            if (n == len) break;
+            for (int i = 0; i < n; i++) foo[i] = b[i];
+            bar.resize(n), binv = bar;
+            dft(foo), dft(bar), bsqr = dot(foo, foo), idft(bsqr);
+            dotEq(foo, bar), idft(foo);
+            for (int i = 0; i < m; i++) foo[i] = 0;
+            for (int i = m; i < n; i++) foo[i] = P - foo[i];
+            dft(foo), dotEq(foo, bar), idft(foo);
+            for (int i = m; i < n; i++) binv[i] = foo[i];
+        }
+        b <<= d / 2;
+        b.resize(raw);
+        return b;
+    }
+    // $O(n)$
+    Poly deriv(Poly a) {
+        for (int i = 0; i + 1 < a.size(); i++) a[i] = (i + 1LL) * a[i + 1] % P;
+        a.pop_back();
+        return a;
+    }
+    std::vector<int> inv = { 1, 1 };
+    void updateInv(int n) {
+        if ((int)inv.size() <= n) {
+            int p = inv.size();
+            inv.resize(n + 1);
+            for (int i = p; i <= n; i++) inv[i] = 1LL * (P - P / i) * inv[P % i] % P;
+        }
+    }
+    // $O(n)$
+    Poly integ(Poly a, int c = 0) {
+        int n = a.size();
+        updateInv(n);
+        Poly b(n + 1);
+        b[0] = c;
+        for (int i = 0; i < n; i++) b[i + 1] = 1LL * inv[i + 1] * a[i] % P;
+        return b;
+    }
+    // $O(n \log n)$
+    Poly ln(Poly a) {
+        int n = a.size();
+        assert(a[0] == 1);
+        a = inverse(a) * deriv(a);
+        a.resize(n - 1);
+        return integ(a);
+    }
+    // newton
+    // $O(n \log n)$, slower than exp2
+    Poly expNewton(Poly a) {
+        int n = a.size();
+        assert((n & n - 1) == 0);
+        assert(a[0] == 0);
+        if (n == 1) return { 1 };
+        int m = n >> 1;
+        Poly b = expNewton(Poly(a.begin(), a.begin() + m)), c;
+        b.resize(n), c = ln(b);
+        a.resize(n << 1), b.resize(n << 1), c.resize(n << 1);
+        dft(a), dft(b), dft(c);
+        for (int i = 0; i < n << 1; i++) a[i] = (1LL + P + a[i] - c[i]) * b[i] % P;
+        idft(a);
+        a.resize(n);
+        return a;
+    }
+    // half-online conv
+    // $O(n\log^2n)$
+    // $b = e^a, b' = a'b$
+    // $(n+1)b_{n+1} = \sum_{i=0}^n a'_ib_{n-i}$
+    // $nb_n = \sum_{i=0}^{n-1} a'_ib_{n - 1 - i}$
+    Poly exp2(Poly a) {
+        if (a.empty()) return {};
+        assert(a[0] == 0);
+        int n = a.size();
+        updateInv(n);
+        for (int i = 0; i + 1 < n; i++) {
+            a[i] = a[i + 1] * (i + 1LL) % P;
+        }
+        a.pop_back();
+        Poly b(n);
+        b[0] = 1;
+        for (int m = 1; m < n; m++) {
+            int k = m & -m, l = m - k, r = std::min(m + k, n);
+            Poly p(a.begin(), a.begin() + (r - l - 1));
+            Poly q(b.begin() + l, b.begin() + m);
+            p.resize(k * 2), q.resize(k * 2);
+            dft(p), dft(q);
+            dotEq(p, q);
+            idft(p);
+            for (int i = m; i < r; i++) inc(b[i], p[i - l - 1]);
+            b[m] = 1LL * b[m] * inv[m] % P;
+        }
+        return b;
+    }
+    // half-online conv
+    // $O(\frac{n\log^2n}{\log\log n})$
+    // $nb_n = \sum_{i=0}^{n-1} a'_ib_{n - 1 - i}$
+    Poly exp(Poly a) {
+        if (a.empty()) return {};
+        assert(a[0] == 0);
+        int n = a.size();
+        updateInv(n);
+        for (int i = 0; i + 1 < n; i++) {
+            a[i] = a[i + 1] * (i + 1LL) % P;
+        }
+        a.pop_back();
+        Poly b(n);
+        b[0] = 1;
+        std::vector<Poly> val_a[6], val_b(n);
+        for (int m = 1; m < n; m++) {
+            int k = 1, d = 0;
+            while (!(m / k & 0xf)) k *= 16, d++;
+            int l = m & ~(0xf * k), r = std::min(n, m + k);
+            if (k == 1) {
+                for (int i = m; i < r; i++) {
+                    for (int j = l; j < m; j++) {
+                        b[i] = (b[i] + 1LL * b[j] * a[i - j - 1]) % P;
+                    }
+                }
+            } else {
+                assert(d < 6);
+                if (val_a[d].empty()) val_a[d].resize(n);
+                val_b[m] = Poly(b.begin() + (m - k), b.begin() + m);
+                val_b[m].resize(k * 2);
+                dft(val_b[m]);
+                Poly res(k * 2);
+                for (; l < m; l += k) {
+                    auto &p = val_a[d][m - l - k];
+                    if (p.empty()) {
+                        p = Poly(a.begin() + (m - l - k), a.begin() + (r - l - 1));
+                        p.resize(2 * k);
+                        dft(p);
+                    }
+                    auto &q = val_b[l + k];
+                    for (int i = 0; i < k * 2; i++) res[i] = (res[i] + 1LL * p[i] * q[i]) % P;
+                }
+                idft(res);
+                for (int i = m; i < r; i++) inc(b[i], res[i - m + k - 1]);
+            }
+            b[m] = 1LL * b[m] * inv[m] % P;
+        }
+        return b;
+    }
+    Poly power(Poly a, int k) {
+        int n = a.size();
+        long long d = 0;
+        while (d < n && !a[d]) d++;
+        if (d == n) return a;
+        a >>= d;
+        int b = fpow(a[0]);
+        norm(a *= b);
+        a = exp(ln(a) * k) * fpow(b, P - 1 - k % (P - 1));
+        a.resize(n);
+        d *= k;
+        for (int i = n - 1; i >= d; i--) a[i] = a[i - d];
+        d = std::min(d, 1LL * n);
+        for (int i = d; i; a[--i] = 0)
+            ;
+        return a;
+    }
+    Poly power(Poly a, int k1, int k2) {  // k1 = k % (P - 1), k2 = k % P
+        int n = a.size();
+        long long d = 0;
+        while (d < n && !a[d]) d++;
+        if (d == n) return a;
+        a >>= d;
+        int b = fpow(a[0]);
+        norm(a *= b);
+        a = exp(ln(a) * k2) * fpow(b, P - 1 - k1 % (P - 1));
+        a.resize(n);
+        d *= k1;
+        for (int i = n - 1; i >= d; i--) a[i] = a[i - d];
+        d = std::min(d, 1LL * n);
+        for (int i = d; i; a[--i] = 0)
+            ;
+        return a;
+    }
+    // [x^n](f / g)
+    // $O(m \log m \log n)$
+    int divAt(Poly f, Poly g, int64_t n) {
+        int len = std::max(f.size(), g.size()), m = 1 << std::__lg(len * 2 - 1);
+        f.resize(len), g.resize(len);
+        for (; n; n >>= 1) {
+            f.resize(m * 2), g.resize(m * 2);
+            dft(f), dft(g);
+            for (int i = 0; i < m * 2; i++) f[i] = 1LL * f[i] * g[i ^ 1] % P;
+            for (int i = 0; i < m; i++) g[i] = 1LL * g[i * 2] * g[i * 2 + 1] % P;
+            g.resize(m);
+            idft(f), idft(g);
+            for (int i = 0, j = n & 1; i < len; i++, j += 2) f[i] = f[j];
+            f.resize(len), g.resize(len);
+        }
+        return f[0];
+    }
+    // [x^i](1/q) i = l...r
+    Poly invRange(Poly q, int64_t l, int64_t r) {
+        assert(l <= r);
+        assert(r - l + 1 <= 5e5);
+        int len = std::max<int>(q.size(), r - l + 1), m = 1 << std::__lg(len * 2 - 1);
+
+        std::function<Poly(Poly &, int64_t)> cal = [&](Poly &a, int64_t n) -> Poly {
+            if (n == 0) {
+                Poly res(len);
+                int c = 0;
+                for (int i = 0; i < m; i++) inc(c, a[i]);
+                res.back() = 1LL * m * fpow(c) % P;
+                return res;
+            }
+            dftDoubling(a.data(), m);
+            Poly b(m * 2);
+            for (int i = 0; i < m; i++) b[i] = 1LL * a[i * 2] * a[i * 2 + 1] % P;
+            auto c = cal(b, n >> 1);
+            std::fill(b.begin(), b.end(), 0);
+            for (int i = 0, o = n & 1 ^ 1; i < len; i++) b[i * 2 ^ o] = c[i];
+            dft(b);
+            for (int i = 0; i < m * 2; i++) b[i] = 1LL * b[i] * a[i ^ 1] % P;
+            idft(b);
+            return Poly(b.begin() + len, b.begin() + len * 2);
+        };
+
+        q.resize(m * 2);
+        dft(q.data(), m);
+        q = cal(q, r);
+        return Poly(q.end() - (r - l + 1), q.end());
+    }
+    int divAt2(Poly f, Poly g, int64_t n) {
+        g = invRange(g, n - ((int)f.size() - 1), n);
+        g = f * g;
+        return g[f.size() - 1];
+    }
 }
 ```
 

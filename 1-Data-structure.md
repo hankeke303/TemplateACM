@@ -232,7 +232,7 @@ namespace zkw_segment_tree{
 }
 ```
 
-### 李超线段树
+## 李超线段树
 
 + 维护平面中若干条线段，查询某横坐标下纵坐标最高的线段编号
 
@@ -950,6 +950,67 @@ namespace LTree {
 + upper 第一个大于的是第几个 (0-based)
 + split 左侧分割出 rk 个元素
 + 树套树 略
++ hkk 版
+
+```cpp
+#define lc c[0]
+#define rc c[1]
+struct Node { int c[2], v, s, r; } t[N]; int nod;
+int newnode(int x) { t[++nod].v = x, t[nod].s = 1, t[nod].r = rand(); return nod; }
+void pushup(int o) { t[o].s = t[t[o].lc].s + t[t[o].rc].s + 1; }
+void split(int o, int v, int &x, int &y) {
+	if (!o) return x = y = 0, (void)0;
+	if (t[o].v <= v) x = o, split(t[x].rc, v, t[x].rc, y), pushup(x);
+	else y = o, split(t[y].lc, v, x, t[y].lc), pushup(y);
+}
+int merge(int x, int y) {
+	if (!x || !y) return x ^ y;
+	if (t[x].r < t[y].r) return t[x].rc = merge(t[x].rc, y), pushup(x), x;
+	else return t[y].lc = merge(x, t[y].lc), pushup(y), y;
+}
+void qins(int v) {
+	int x, y;
+	split(rt, v, x, y);
+	rt = merge(merge(x, newnode(v)), y);
+}
+void qdel(int v) {
+	int x, y, z;
+	split(rt, v, x, y);
+	split(x, v - 1, x, z);
+	rt = merge(merge(x, merge(t[z].lc, t[z].rc)), y);
+}
+int qrank(int v) {
+	int ans = 0, o = rt;
+	while (o)
+		if (v <= t[o].v) o = t[o].lc;
+		else ans += t[t[o].lc].s + 1, o = t[o].rc;
+	return ans + 1;
+}
+int qkth(int k) {
+	int o = rt;
+	while (o) {
+		if (t[t[o].lc].s + 1 == k) return t[o].v;
+		if (k <= t[t[o].lc].s) o = t[o].lc;
+		else k -= t[t[o].lc].s + 1, o = t[o].rc;
+	}
+}
+int qpre(int v) {
+	int ans = -INF, o = rt;
+	while (o)
+		if (v <= t[o].v) o = t[o].lc;
+		else smax(ans, t[o].v), o = t[o].rc;
+	return ans;
+}
+int qnxt(int v) {
+	int ans = INF, o = rt;
+	while (o)
+		if (v >= t[o].v) o = t[o].rc;
+		else smin(ans, t[o].v), o = t[o].lc;
+	return ans;
+}
+```
+
+- 模板原版
 
 ```cpp
 namespace treap {
@@ -1821,6 +1882,66 @@ cc_hash_table<int, int> mp;
 + 图中相邻的结点在伸展树中不一定是父子关系
 + 遇事不决 `make_root`
 + 跑左右儿子的时候不要忘记 `down`
++ hkk 版
+
+```cpp
+#define lc c[0]
+#define rc c[1]
+struct Node { int c[2], fa, v, sum; bool rev; } t[N];
+int S[N];
+bool isroot(int o) { return t[t[o].fa].lc != o && t[t[o].fa].rc != o;}
+bool idtfy(int o) { return t[t[o].fa].rc == o; }
+void connect(int fa, int o, bool d) { t[fa].c[d] = o, t[o].fa = fa; }
+void pushup(int o) { t[o].sum = t[t[o].lc].sum ^ t[t[o].rc].sum ^ t[o].v; }
+void pushdown(int o) {
+	if (!t[o].rev) return;
+	t[o].rev = 0;
+	if (t[o].lc) std::swap(t[t[o].lc].lc, t[t[o].lc].rc), t[t[o].lc].rev ^= 1;
+	if (t[o].rc) std::swap(t[t[o].rc].lc, t[t[o].rc].rc), t[t[o].rc].rev ^= 1;
+}
+void rotate(int o) {
+	int fa = t[o].fa, pa = t[fa].fa, d1 = idtfy(o), d2 = idtfy(fa), b = t[o].c[d1 ^ 1];
+	t[o].fa = pa, !isroot(fa) && (t[pa].c[d2] = o);
+	connect(fa, b, d1), connect(o, fa, d1 ^ 1);
+	pushup(fa), pushup(o);
+}
+void splay(int o) {
+	int x = o, tp = 1;
+	S[tp] = x;
+	while (!isroot(x)) S[++tp] = x = t[x].fa;
+	while (tp) pushdown(S[tp--]);
+	while (!isroot(o)) {
+		int fa = t[o].fa;
+		if (isroot(fa)) rotate(o);
+		else if (idtfy(o) == idtfy(fa)) rotate(fa), rotate(o);
+		else rotate(o), rotate(o);
+	}
+}
+void access(int o) {
+	for (int x = 0; o; x = o, o = t[o].fa)
+		splay(o), t[o].rc = x, pushup(o);
+}
+int findrt(int x) {
+	access(x), splay(x);
+	while (t[x].lc) pushdown(x), x = t[x].lc;
+	return splay(x), x;
+}
+void mkrt(int x) {
+	access(x), splay(x);
+	t[x].rev ^= 1, std::swap(t[x].lc, t[x].rc);
+}
+void split(int x, int y) { mkrt(x), access(y), splay(y); }
+void link(int x, int y) {
+	mkrt(x);
+	if (findrt(y) != x) t[x].fa = y;
+}
+void cut(int x, int y) {
+	split(x, y);
+	if (t[y].lc == x && t[x].fa == y) t[y].lc = t[x].fa = 0, pushup(y);
+}
+```
+
+- 模板原版
 
 ```cpp
 namespace lct {
