@@ -232,6 +232,82 @@ namespace zkw_segment_tree{
 }
 ```
 
+### 李超线段树
+
++ 维护平面中若干条线段，查询某横坐标下纵坐标最高的线段编号
+
+```cpp
+struct Seg {
+	int	x0, x1;
+	double	k, b;
+} seg[N + 1];
+int tot;
+namespace lctree
+{
+int tr[(M << 2) + 1];
+inline double inter(int x, int y)
+{
+	return (seg[y].b - seg[x].b) / (seg[x].k - seg[y].k);
+}
+inline double calc(int num, int x)
+{
+	return seg[num].k * x + seg[num].b;
+}
+inline void update(int now, int l, int r, int num)
+{
+	if (l >= seg[num].x0 && r <= seg[num].x1) {
+		if (!tr[now]) {
+			tr[now] = num;
+			return;
+		}
+		double al = calc(tr[now], l), ar = calc(tr[now], r), bl = calc(num, l), br = calc(num, r);
+		if (bl <= al && br <= ar)
+			return;
+		if (bl >= al && br >= ar) {
+			tr[now] = num;
+			return;
+		}
+		double w = inter(tr[now], num);
+		if (bl >= al) {
+			if (w <= mid) {
+				update(lson, l, mid, num);
+			} else {
+				update(rson, mid + 1, r, tr[now]);
+				tr[now] = num;
+			}
+		} else {
+			if (w <= mid) {
+				update(lson, l, mid, tr[now]);
+				tr[now] = num;
+			} else {
+				update(rson, mid + 1, r, num);
+			}
+		}
+	} else {
+		if (mid >= seg[num].x0)
+			update(lson, l, mid, num);
+		if (mid < seg[num].x1)
+			update(rson, mid + 1, r, num);
+	}
+	return;
+}
+inline int query(int now, int l, int r, int pos)
+{
+	int ans = tr[now], x;
+
+	if (l == r)
+		return ans;
+	if (pos <= mid)
+		x = query(lson, l, mid, pos);
+	else
+		x = query(rson, mid + 1, r, pos);
+	if (calc(x, pos) >= calc(ans, pos))
+		ans = x;
+	return ans;
+}
+}
+```
+
 ## 均摊复杂度线段树
 
 + 区间取 min，区间求和。
