@@ -19,6 +19,29 @@ void dijkstra(int s) {
 }
 ```
 
+## 最小生成树
+
+### Kruskal 重构树
+
+```cpp
+void kruskal() {
+	int tot = 0, cnt = n;
+	for (int i = 1; i <= (n << 1); ++i) fa[i] = i;
+	sort(e + 1, e + m + 1, cmp);
+	for (int i = 1; i <= m; ++i) {
+		int u = e[i].u, v = e[i].v;
+		int fx = find(u), fy = find(v);
+		if (fx != fy) {
+			add(++cnt, fx), add(cnt, fy);
+			fa[fx] = cnt, fa[fy] = cnt;
+			p[cnt].a = e[i].a;
+			++tot;
+		}
+		if (tot == n - 1) break;
+	}
+}
+```
+
 ## LCA
 
 + 倍增
